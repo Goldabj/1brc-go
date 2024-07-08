@@ -1,0 +1,15 @@
+Palermo;3.1
+Harbin;10.1
+Tallinn;17.1
+Banjul;25.0
+Boston;4.0
+Palermo;1.1
+Harbin;1.1
+Tallinn;17.1
+Banjul;25.0
+Boston;4.0
+Palermo;3.1
+Harbin;10.1
+Tallinn;12.1
+Banjul;5.0
+Boston;4.0
