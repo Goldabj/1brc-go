@@ -46,4 +46,14 @@ This code base is available under the Apache License, version 2.
 
 ## Results Log
 
-1. Sequential scanning of file single threaded: 146s
+### 1: Sequential Scanning (146s)
+A simple single threaded naive approach of reading the file with a scanner, and then calculating the aggregate measurements. 
+
+
+### 2: Multi-Threaded publisher and consumers model (8:06)
+A go process to read the file sequentially and push lines in to a queue (channel). Then may go consumer processes to read from the queue, and convert the lines into measurements.
+
+**Notes: I'm assuming this was very slow due to the high number of channel reads (for each line). Im assuming under the hoods this requires a mutex acquisition to read from the queue. Therefore, this may have became costly**
+
+### 3: Multi-threaded Consumer Only Model (??)
+We have a main thread which sequentially reads the lines into memory until it reaches 1b/MaxProcesses lines. When it reaches count, we kick of a new go routine to process an array of these lines. The hypothesis is that this model should avoid the locking issue seen in the first model. 
