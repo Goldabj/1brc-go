@@ -46,6 +46,11 @@ This code base is available under the Apache License, version 2.
 
 ## Results Log
 
+### Baseline: Sequential file read (25s)
+See cmd/experiment/fileReadExp.go
+
+This reads the 1b file and times how long it takes. 
+
 ### 1: Sequential Scanning (146s)
 A simple single threaded naive approach of reading the file with a scanner, and then calculating the aggregate measurements. 
 
@@ -55,5 +60,11 @@ A go process to read the file sequentially and push lines in to a queue (channel
 
 **Notes: I'm assuming this was very slow due to the high number of channel reads (for each line). Im assuming under the hoods this requires a mutex acquisition to read from the queue. Therefore, this may have became costly**
 
-### 3: Multi-threaded Consumer Only Model (??)
-We have a main thread which sequentially reads the lines into memory until it reaches 1b/MaxProcesses lines. When it reaches count, we kick of a new go routine to process an array of these lines. The hypothesis is that this model should avoid the locking issue seen in the first model. 
+### 3: Multi-threaded Consumer Only Model (59s)
+We have a main thread which sequentially reads the 10M lines into memory. The we kick of a new go routine to process an array of these lines. The hypothesis is that this model should avoid the locking issue seen in the first model. 
+
+I experimented with different chunk sizes and got the following results on a M1 macbook pro (8 core count)
+* 100K = 60s
+* 1M = 58s
+* 10M = 59s
+* 100M = 363s

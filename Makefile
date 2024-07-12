@@ -24,7 +24,7 @@ clean:
 ## test: run tests
 .PHONY: test
 test:
-	go test ./...
+	go test ./... -v
 
 ## test/coverage: Run test with coverage information
 .PHONY: test/coverage

@@ -1,11 +1,9 @@
 package main
 
 import (
-	"fmt"
+	"bufio"
 	"log"
 	"os"
-
-	"github.com/goldabj/1brc-go/cmd/brc"
 )
 
 func main() {
@@ -19,10 +17,13 @@ func main() {
 	}
 	defer file.Close()
 
-	measurements, error := brc.ProcessLogFile(file)
-	if error != nil {
-		panic(error)
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+
+	count := 0
+	for scanner.Scan() {
+		count++
 	}
 
-	fmt.Printf("Measurements Length: %v\n\n", len(measurements))
+	log.Printf("Read %v lines", count)
 }

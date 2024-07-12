@@ -5,32 +5,58 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 )
+
+var wg sync.WaitGroup
 
 // Convert a log file of readings into a map of measurements
 func ProcessLogFile(file *os.File) (map[string]*Measurement, error) {
-	coreCount := runtime.NumCPU()
-	log.Printf("Core Count: %v", coreCount)
+	chunkSize := 10000000
 
 	// go process to push lines into a string queue
-	linesQueue := make(chan string, 100000000)
-	go readLines(file, linesQueue)
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines) // built in splitter to move iterator until next /n char
+	count := int64(0)
 
-	// process each chunk in its own go routine
-	resultsQueue := make(chan map[string]*Measurement, coreCount)
-	for i := 0; i < coreCount-1; i++ {
-		go lineWorker(linesQueue, resultsQueue)
+	lines := make([]string, 0, chunkSize)
+	resultsQueue := make(chan map[string]*Measurement, 10000)
+
+	for scanner.Scan() {
+		count++
+
+		line := scanner.Text()
+		lines = append(lines, line)
+		if count%int64(chunkSize) == 0 {
+			wg.Add(1)
+			go processChunk(lines, resultsQueue)
+			lines = make([]string, 0, chunkSize)
+		}
+
+		if count%100000000 == 0 {
+			log.Printf("Processed %v lines", count)
+		}
 	}
+	// just in case, finish any left overs
+	wg.Add(1)
+	go processChunk(lines, resultsQueue)
+
+	// go process to close the results queue to signal all the consumers are done
+	go func() {
+		wg.Wait()
+		close(resultsQueue)
+	}()
 
 	// collect results from go routines
 	m := make(map[string]*Measurement)
 
-	// TODO: instead of this for loop with counts, we could (and maybe should) use some sort of wait group.
-	for i := 0; i < coreCount-1; i++ {
-		chunkResults := <-resultsQueue
+	for {
+		chunkResults, ok := <-resultsQueue
+		if !ok {
+			break
+		}
 		log.Printf("Received chunk results from a process")
 
 		for city, measure := range chunkResults {
@@ -41,46 +67,19 @@ func ProcessLogFile(file *os.File) (map[string]*Measurement, error) {
 	return m, nil
 }
 
-// Read the liens of the file and push the lines int a queue for workers to process
-func readLines(file *os.File, linesQueue chan string) {
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanLines) // built in splitter to move iterator until next /n char
-	count := int64(0)
-	for scanner.Scan() {
-		count++
+func processChunk(lines []string, resultQueue chan map[string]*Measurement) {
+	defer wg.Done()
+	log.Printf("Starting new worker process")
 
-		line := scanner.Text()
-		linesQueue <- line // push line into line queue
-
-		if count%100000000 == 0 {
-			log.Printf("Processed %v lines", count)
-		}
-	}
-	close(linesQueue) // close to mark the file as done reading
-}
-
-// A worker to process lines as they are added to the queue
-func lineWorker(linesQueue chan string, resultsChan chan map[string]*Measurement) {
 	results := make(map[string]*Measurement)
-	count := 0
-	for {
-		line, ok := <-linesQueue
-		if !ok {
-			log.Printf("No more lines to process ending")
-			break
-		}
-
-		count++
+	for _, line := range lines {
 		measurement, city, err := lineToMeasurement(line)
 		if err != nil {
 			panic(err)
 		}
 		combineMeasurements(city, measurement, results)
 	}
-
-	// publish results
-	log.Printf("This worker processed %v lines", count)
-	resultsChan <- results
+	resultQueue <- results
 }
 
 // converts a line in the format: "city;xx.x" into a measurement object
@@ -119,5 +118,4 @@ func combineMeasurements(city string, newMeasurement *Measurement, m map[string]
 
 // TODO: profile to see largest time spends
 // TODO: time a simple program to see how fast it is just to read the file with a scanner
-// TODO: For attempt 3, lets just read lines into memory (chuncking) and processing the lines in another go routine
 // TODO: time a single program to see how fast it is to mmmap the file, then read each line
