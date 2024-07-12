@@ -74,6 +74,7 @@ func TestProcessLogHappyPath(t *testing.T) {
 	measurementMap, error := ProcessLogFile(file)
 	if error != nil {
 		t.Error(error.Error())
+		return
 	}
 
 	// Palermo

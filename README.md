@@ -51,6 +51,9 @@ See cmd/experiment/fileReadExp.go
 
 This reads the 1b file and times how long it takes. 
 
+### Baseline: mmaped file sequential read (5.6s)
+We mmap a file, then read each byte sequentially. 
+
 ### 1: Sequential Scanning (146s)
 A simple single threaded naive approach of reading the file with a scanner, and then calculating the aggregate measurements. 
 
@@ -68,3 +71,17 @@ I experimented with different chunk sizes and got the following results on a M1 
 * 1M = 58s
 * 10M = 59s
 * 100M = 363s
+
+### 4: Mmaped file with go routine consumers (64s)
+We mmpp the data file into memory. We then chunk this data into even chunks for the number of workers we want (aligned on a new line). Each worker processes the chunk in parallel, then we reduce at the end. 
+
+I experimented with the number of workers and got the following results: 
+* 1 (basically sequential) = 205s
+* 7 = 64s
+* 10 = 67s
+* 30 = 77s
+
+**I expected this one to be the fastest, and cut significantly on attempt 3. However, it was near the same. My guess is that due to only having 16GB of memory, there is some memory pressure (and page faults) trying to load the entire file into memory at once**
+
+
+

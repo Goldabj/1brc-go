@@ -1,47 +1,42 @@
 package brc
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/edsrzf/mmap-go"
 )
 
 var wg sync.WaitGroup
 
 // Convert a log file of readings into a map of measurements
 func ProcessLogFile(file *os.File) (map[string]*Measurement, error) {
-	chunkSize := 10000000
-
-	// go process to push lines into a string queue
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanLines) // built in splitter to move iterator until next /n char
-	count := int64(0)
-
-	lines := make([]string, 0, chunkSize)
-	resultsQueue := make(chan map[string]*Measurement, 10000)
-
-	for scanner.Scan() {
-		count++
-
-		line := scanner.Text()
-		lines = append(lines, line)
-		if count%int64(chunkSize) == 0 {
-			wg.Add(1)
-			go processChunk(lines, resultsQueue)
-			lines = make([]string, 0, chunkSize)
-		}
-
-		if count%100000000 == 0 {
-			log.Printf("Processed %v lines", count)
-		}
+	// mmap a file
+	data, err := mmap.Map(file, mmap.RDONLY, 0)
+	if err != nil {
+		return nil, err
 	}
-	// just in case, finish any left overs
-	wg.Add(1)
-	go processChunk(lines, resultsQueue)
+	//nolint:all
+	defer data.Unmap()
+	log.Printf("Data Size: %v", len(data))
+
+	resultsQueue := make(chan map[string]*Measurement, 100)
+
+	workers := 8
+	chunkSize := len(data) / workers
+	log.Printf("Chunk Size: %v", chunkSize)
+	start := 0
+	end := -1
+	for end < len(data)-1 { // -1 since the last char is an extra new line
+		start = end + 1
+		end = seekToNewLine(data, end+chunkSize)
+		wg.Add(1)
+		go processChunk(data[start:end+1], resultsQueue)
+	}
 
 	// go process to close the results queue to signal all the consumers are done
 	go func() {
@@ -67,19 +62,38 @@ func ProcessLogFile(file *os.File) (map[string]*Measurement, error) {
 	return m, nil
 }
 
-func processChunk(lines []string, resultQueue chan map[string]*Measurement) {
+func processChunk(data []byte, resultQueue chan map[string]*Measurement) {
 	defer wg.Done()
-	log.Printf("Starting new worker process")
+	log.Printf("Starting new worker process with %v data", len(data))
 
 	results := make(map[string]*Measurement)
-	for _, line := range lines {
+	lineStart := 0
+	for i := 1; i < len(data); i++ {
+		if data[i] != '\n' {
+			continue
+		}
+
+		line := string(data[lineStart:i])
+
 		measurement, city, err := lineToMeasurement(line)
 		if err != nil {
-			panic(err)
+			log.Fatalf("errored: %v", err.Error())
 		}
 		combineMeasurements(city, measurement, results)
+
+		lineStart = i + 1
 	}
 	resultQueue <- results
+}
+
+// returns the index of the first /n char after the start position in the byte array
+func seekToNewLine(data []byte, start int) int {
+	for i := start; i < len(data); i++ {
+		if data[i] == '\n' {
+			return i
+		}
+	}
+	return len(data) - 1
 }
 
 // converts a line in the format: "city;xx.x" into a measurement object
@@ -114,8 +128,4 @@ func combineMeasurements(city string, newMeasurement *Measurement, m map[string]
 	}
 }
 
-// TODO: look up mmaping again
-
 // TODO: profile to see largest time spends
-// TODO: time a simple program to see how fast it is just to read the file with a scanner
-// TODO: time a single program to see how fast it is to mmmap the file, then read each line
