@@ -129,3 +129,6 @@ func combineMeasurements(city string, newMeasurement *Measurement, m map[string]
 }
 
 // TODO: profile to see largest time spends
+// TODO: change to int64 parsing string and int64 math
+// TODO: create your own line split function to create a split without copying array
+// TODO:
