@@ -24,19 +24,27 @@ func ProcessLogFile(file *os.File) (map[string]*Measurement, error) {
 	defer data.Unmap()
 	log.Printf("Data Size: %v", len(data))
 
-	resultsQueue := make(chan map[string]*Measurement, 100)
-
 	workers := 8
-	chunkSize := len(data) / workers
+	chunkSize := len(data) / (workers * 10) // 10th of a worker
 	log.Printf("Chunk Size: %v", chunkSize)
+
+	chunksQueue := make(chan []byte, workers*10)
+	resultsQueue := make(chan map[string]*Measurement, workers*10)
+
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go chunkWorker(chunksQueue, resultsQueue)
+	}
+
+	// send chunks aligned on \n char to workers
 	start := 0
 	end := -1
 	for end < len(data)-1 { // -1 since the last char is an extra new line
 		start = end + 1
 		end = seekToNewLine(data, end+chunkSize)
-		wg.Add(1)
-		go processChunk(data[start:end+1], resultsQueue)
+		chunksQueue <- data[start : end+1]
 	}
+	close(chunksQueue)
 
 	// go process to close the results queue to signal all the consumers are done
 	go func() {
@@ -44,7 +52,7 @@ func ProcessLogFile(file *os.File) (map[string]*Measurement, error) {
 		close(resultsQueue)
 	}()
 
-	// collect results from go routines
+	// collect and reduce results from go routines
 	m := make(map[string]*Measurement)
 
 	for {
@@ -62,28 +70,30 @@ func ProcessLogFile(file *os.File) (map[string]*Measurement, error) {
 	return m, nil
 }
 
-func processChunk(data []byte, resultQueue chan map[string]*Measurement) {
+func chunkWorker(dataQueue chan []byte, resultQueue chan map[string]*Measurement) {
 	defer wg.Done()
-	log.Printf("Starting new worker process with %v data", len(data))
+	for data := range dataQueue {
+		log.Printf("Starting new worker process with %v data", len(data))
+		results := make(map[string]*Measurement)
+		lineStart := 0
 
-	results := make(map[string]*Measurement)
-	lineStart := 0
-	for i := 1; i < len(data); i++ {
-		if data[i] != '\n' {
-			continue
+		for i := 1; i < len(data); i++ {
+			if data[i] != '\n' {
+				continue
+			}
+
+			line := string(data[lineStart:i])
+
+			measurement, city, err := lineToMeasurement(line)
+			if err != nil {
+				log.Fatalf("errored: %v", err.Error())
+			}
+			combineMeasurements(city, measurement, results)
+
+			lineStart = i + 1
 		}
-
-		line := string(data[lineStart:i])
-
-		measurement, city, err := lineToMeasurement(line)
-		if err != nil {
-			log.Fatalf("errored: %v", err.Error())
-		}
-		combineMeasurements(city, measurement, results)
-
-		lineStart = i + 1
+		resultQueue <- results
 	}
-	resultQueue <- results
 }
 
 // returns the index of the first /n char after the start position in the byte array
@@ -128,7 +138,5 @@ func combineMeasurements(city string, newMeasurement *Measurement, m map[string]
 	}
 }
 
-// TODO: profile to see largest time spends
 // TODO: change to int64 parsing string and int64 math
 // TODO: create your own line split function to create a split without copying array
-// TODO:

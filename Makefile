@@ -18,7 +18,7 @@ run-timed: build
 .PHONY: run-profile
 run-profile: build
 	mkdir -p ./build/profile
-	./build/bin/brc ./data/measurements.txt --cpuprofile=./build/profile/cpuprofile.prof --memprofile=./build/profile/memprofile.prof
+	time ./build/bin/brc ./data/measurements.txt --cpuprofile=./build/profile/cpuprofile.prof --memprofile=./build/profile/memprofile.prof
 
 ## clean: Clean the project
 .PHONY: clean
