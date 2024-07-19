@@ -29,7 +29,8 @@ clean:
 ## test: run tests
 .PHONY: test
 test:
-	go test ./... -v
+	go test ./... -v -race
+	go test ./... -bench=. -run=XXX -benchmem
 
 ## test/coverage: Run test with coverage information
 .PHONY: test/coverage

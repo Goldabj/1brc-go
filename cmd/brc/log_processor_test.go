@@ -112,3 +112,16 @@ func TestProcessLogHappyPath(t *testing.T) {
 	assert.Equal(t, 4.0, measurement.Min)
 	assert.Equal(t, 4.0, measurement.Max)
 }
+
+// BenchMark Testing
+func BenchmarkProcessor(b *testing.B) {
+	file, err := os.Open("../../test/data/measurements-1m.txt")
+	if err != nil {
+		b.Error(err.Error())
+	}
+	defer file.Close()
+
+	for i := 0; i < b.N; i++ {
+		ProcessLogFile(file)
+	}
+}

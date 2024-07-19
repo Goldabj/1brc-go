@@ -24,7 +24,7 @@ func ProcessLogFile(file *os.File) (map[string]*Measurement, error) {
 	defer data.Unmap()
 	log.Printf("Data Size: %v", len(data))
 
-	workers := 8
+	workers := 7
 	chunkSize := len(data) / (workers * 10) // 10th of a worker
 	log.Printf("Chunk Size: %v", chunkSize)
 
@@ -138,5 +138,10 @@ func combineMeasurements(city string, newMeasurement *Measurement, m map[string]
 	}
 }
 
-// TODO: change to int64 parsing string and int64 math
+// TODO: create a benchmark test so we get memory allocation numbers
+// TODO: Add race condition testing too
+// TODO: try using copies of Measurements to see if that turns out to be faster (due to less GC)
 // TODO: create your own line split function to create a split without copying array
+// TODO: change to int64 parsing string and int64 math
+
+// TODO: try to set the go GC at a large default min space size.

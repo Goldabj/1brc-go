@@ -83,5 +83,10 @@ I experimented with the number of workers and got the following results:
 
 **I expected this one to be the fastest, and cut significantly on attempt 3. However, it was near the same. My guess is that due to only having 16GB of memory, there is some memory pressure (and page faults) trying to load the entire file into memory at once**
 
+Benchmark Results:
+18          68792752 ns/op        83126841 B/op    3002325 allocs/op
 
+### 5: Changed Map to use Measurements instead of measurements pointer
+Our Go worker routines were returning a `map[string]*Measurement`. However, looking at the cpu profile for attempt 4, alot of time is being spent on managing the stack (`runtime.morestack`) and other functions that looked like garbage collection. 
 
+Therefore the idea is by having a `map[string]Measurement`, then some results may live on the stack, and therefore lead to lower garbage collection (and coordination between go routines)
