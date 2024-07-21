@@ -14,7 +14,7 @@ import (
 var wg sync.WaitGroup
 
 // Convert a log file of readings into a map of measurements
-func ProcessLogFile(file *os.File) (map[string]*Measurement, error) {
+func ProcessLogFile(file *os.File) (map[string]Measurement, error) {
 	// mmap a file
 	data, err := mmap.Map(file, mmap.RDONLY, 0)
 	if err != nil {
@@ -29,7 +29,7 @@ func ProcessLogFile(file *os.File) (map[string]*Measurement, error) {
 	log.Printf("Chunk Size: %v", chunkSize)
 
 	chunksQueue := make(chan []byte, workers*10)
-	resultsQueue := make(chan map[string]*Measurement, workers*10)
+	resultsQueue := make(chan map[string]Measurement, workers*10)
 
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
@@ -53,7 +53,7 @@ func ProcessLogFile(file *os.File) (map[string]*Measurement, error) {
 	}()
 
 	// collect and reduce results from go routines
-	m := make(map[string]*Measurement)
+	m := make(map[string]Measurement)
 
 	for {
 		chunkResults, ok := <-resultsQueue
@@ -70,11 +70,11 @@ func ProcessLogFile(file *os.File) (map[string]*Measurement, error) {
 	return m, nil
 }
 
-func chunkWorker(dataQueue chan []byte, resultQueue chan map[string]*Measurement) {
+func chunkWorker(dataQueue chan []byte, resultQueue chan map[string]Measurement) {
 	defer wg.Done()
 	for data := range dataQueue {
 		log.Printf("Starting new worker process with %v data", len(data))
-		results := make(map[string]*Measurement)
+		results := make(map[string]Measurement)
 		lineStart := 0
 
 		for i := 1; i < len(data); i++ {
@@ -108,16 +108,16 @@ func seekToNewLine(data []byte, start int) int {
 
 // converts a line in the format: "city;xx.x" into a measurement object
 // returns teh Measurement and city.
-func lineToMeasurement(line string) (*Measurement, string, error) {
+func lineToMeasurement(line string) (Measurement, string, error) {
 	splits := strings.Split(line, ";")
 	if len(splits) != 2 {
-		return nil, "", fmt.Errorf("line split produced more than 2 splits:  %v", line)
+		return Measurement{}, "", fmt.Errorf("line split produced more than 2 splits:  %v", line)
 	}
 	city := splits[0]
 	measureString := splits[1]
 	measure, err := strconv.ParseFloat(measureString, 64)
 	if err != nil {
-		return nil, "", fmt.Errorf("measure is not a number:  %v", measureString)
+		return Measurement{}, "", fmt.Errorf("measure is not a number:  %v", measureString)
 	}
 
 	measurement := Measurement{
@@ -126,19 +126,19 @@ func lineToMeasurement(line string) (*Measurement, string, error) {
 		Sum:   measure,
 		Count: 1,
 	}
-	return &measurement, city, nil
+	return measurement, city, nil
 }
 
 // Merge the new measurement into the map of measurements.
-func combineMeasurements(city string, newMeasurement *Measurement, m map[string]*Measurement) {
+func combineMeasurements(city string, newMeasurement Measurement, m map[string]Measurement) {
 	if currentMeasure, found := m[city]; found {
 		currentMeasure.Merge(newMeasurement)
+		m[city] = currentMeasure
 	} else {
 		m[city] = newMeasurement
 	}
 }
 
-// TODO: create a benchmark test so we get memory allocation numbers
 // TODO: Add race condition testing too
 // TODO: try using copies of Measurements to see if that turns out to be faster (due to less GC)
 // TODO: create your own line split function to create a split without copying array

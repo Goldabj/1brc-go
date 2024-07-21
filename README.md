@@ -86,7 +86,13 @@ I experimented with the number of workers and got the following results:
 Benchmark Results:
 18          68792752 ns/op        83126841 B/op    3002325 allocs/op
 
-### 5: Changed Map to use Measurements instead of measurements pointer
+### 5: Changed Map to use Measurements instead of measurements pointer (61s)
 Our Go worker routines were returning a `map[string]*Measurement`. However, looking at the cpu profile for attempt 4, alot of time is being spent on managing the stack (`runtime.morestack`) and other functions that looked like garbage collection. 
 
 Therefore the idea is by having a `map[string]Measurement`, then some results may live on the stack, and therefore lead to lower garbage collection (and coordination between go routines)
+
+Benchmark results:
+19          63923818 ns/op        53225366 B/op    2002570 allocs/op
+
+Time Results:
+61.22 real       243.05 user        31.67 sys

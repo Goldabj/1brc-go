@@ -8,7 +8,7 @@ import (
 )
 
 func TestCombineMeasurementsHappyPath(t *testing.T) {
-	m1 := make(map[string]*Measurement)
+	m1 := make(map[string]Measurement)
 
 	measure1 := Measurement{
 		Min:   1,
@@ -16,7 +16,7 @@ func TestCombineMeasurementsHappyPath(t *testing.T) {
 		Sum:   11,
 		Count: 2,
 	}
-	m1["city"] = &measure1
+	m1["city"] = measure1
 
 	measure2 := Measurement{
 		Min:   4,
@@ -25,7 +25,7 @@ func TestCombineMeasurementsHappyPath(t *testing.T) {
 		Count: 3,
 	}
 
-	combineMeasurements("city", &measure2, m1)
+	combineMeasurements("city", measure2, m1)
 
 	merged := m1["city"]
 	assert.Equal(t, 1.0, merged.Min)
@@ -122,6 +122,9 @@ func BenchmarkProcessor(b *testing.B) {
 	defer file.Close()
 
 	for i := 0; i < b.N; i++ {
-		ProcessLogFile(file)
+
+		results, error := ProcessLogFile(file)
+		_ = results
+		_ = error
 	}
 }
