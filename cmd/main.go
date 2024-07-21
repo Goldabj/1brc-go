@@ -3,10 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"runtime"
 	"runtime/pprof"
+	"sort"
 
 	"github.com/goldabj/1brc-go/cmd/brc"
 )
@@ -59,6 +61,38 @@ func main() {
 		if err := pprof.WriteHeapProfile(f); err != nil {
 			log.Fatal("could not write memory profile: ", err)
 		}
+	}
+
+	ids := make([]string, 0, len(measurements))
+	for id := range measurements {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	writer := io.Discard
+
+	_, err = io.WriteString(writer, "{")
+	if err != nil {
+		panic(err)
+	}
+
+	for i, id := range ids {
+		if i > 0 {
+			_, err = io.WriteString(writer, ",")
+			if err != nil {
+				panic(err)
+			}
+		}
+		m := measurements[id]
+		line := fmt.Sprintf("%s=%.1f/%.1f/%.1f", id, m.Min(), m.Avg(), m.Max())
+		_, err = io.WriteString(writer, line)
+		if err != nil {
+			panic(err)
+		}
+	}
+	_, err = io.WriteString(writer, "}")
+	if err != nil {
+		panic(err)
 	}
 }
 

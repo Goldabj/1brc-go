@@ -1,9 +1,11 @@
 package brc
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,12 +26,12 @@ func ProcessLogFile(file *os.File) (map[string]Measurement, error) {
 	defer data.Unmap()
 	log.Printf("Data Size: %v", len(data))
 
-	workers := 7
-	chunkSize := len(data) / (workers * 10) // 10th of a worker
+	workers := runtime.NumCPU()
+	chunkSize := len(data) / workers
 	log.Printf("Chunk Size: %v", chunkSize)
 
-	chunksQueue := make(chan []byte, workers*10)
-	resultsQueue := make(chan map[string]Measurement, workers*10)
+	chunksQueue := make(chan []byte, workers)
+	resultsQueue := make(chan map[string]Measurement, workers)
 
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
@@ -53,7 +55,7 @@ func ProcessLogFile(file *os.File) (map[string]Measurement, error) {
 	}()
 
 	// collect and reduce results from go routines
-	m := make(map[string]Measurement)
+	m := make(map[string]Measurement, 512)
 
 	for {
 		chunkResults, ok := <-resultsQueue
@@ -73,16 +75,17 @@ func ProcessLogFile(file *os.File) (map[string]Measurement, error) {
 func chunkWorker(dataQueue chan []byte, resultQueue chan map[string]Measurement) {
 	defer wg.Done()
 	for data := range dataQueue {
-		log.Printf("Starting new worker process with %v data", len(data))
-		results := make(map[string]Measurement)
+		results := make(map[string]Measurement, 256)
 		lineStart := 0
 
-		for i := 1; i < len(data); i++ {
-			if data[i] != '\n' {
-				continue
+		lineEnd := 0
+		for lineEnd < len(data)-1 {
+			lineLen := bytes.IndexByte(data[lineStart:], '\n')
+			if lineLen == -1 {
+				break
 			}
 
-			line := string(data[lineStart:i])
+			line := string(data[lineStart:(lineStart + lineLen)])
 
 			measurement, city, err := lineToMeasurement(line)
 			if err != nil {
@@ -90,7 +93,7 @@ func chunkWorker(dataQueue chan []byte, resultQueue chan map[string]Measurement)
 			}
 			combineMeasurements(city, measurement, results)
 
-			lineStart = i + 1
+			lineStart += lineLen + 1
 		}
 		resultQueue <- results
 	}
@@ -98,12 +101,14 @@ func chunkWorker(dataQueue chan []byte, resultQueue chan map[string]Measurement)
 
 // returns the index of the first /n char after the start position in the byte array
 func seekToNewLine(data []byte, start int) int {
-	for i := start; i < len(data); i++ {
-		if data[i] == '\n' {
-			return i
-		}
+	if start > len(data) {
+		return len(data) - 1
 	}
-	return len(data) - 1
+	idx := bytes.IndexByte(data[start:], '\n')
+	if idx == -1 {
+		return len(data) - 1
+	}
+	return idx + start
 }
 
 // converts a line in the format: "city;xx.x" into a measurement object
@@ -125,7 +130,7 @@ func lineToMeasurement(line string) (Measurement, string, error) {
 
 	decimal, err := strconv.ParseInt(measureString[decimalIdx+1:], 10, 64)
 	if err != nil {
-		return Measurement{}, "", fmt.Errorf("measure is not a number:  %v", measureString)
+		return Measurement{}, "", fmt.Errorf("decimal is not a number:  %v", measureString)
 	}
 
 	total := measure*10 + decimal // we know decimal is a number 0 - 9
@@ -149,4 +154,10 @@ func combineMeasurements(city string, newMeasurement Measurement, m map[string]M
 	}
 }
 
+// TODO: lets try different worker sizes to see if theat helps lower the scheduler and GC times
 // TODO: try to set the go GC at a large default min space size.
+// TODO: Add tracing to see Heap size over time
+// TODO: what is runtime.asyncPreempt?
+
+// TODO: looks like map accesses are the slowest part right now (with strings). So maybe we change it to an idx style lookup?
+// TODO: SIMD -- For string splitting (finding \n and other chars)

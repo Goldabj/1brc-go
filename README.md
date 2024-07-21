@@ -97,11 +97,11 @@ Benchmark results:
 Time Results:
 61.22 real       243.05 user        31.67 sys
 
-### 6: Custom Line Parsing and int64 operations (41s)
+### 6: Custom Line Parsing and int64 operations (34s)
 Instead of using `strings.Split(line, ";")` and `strconv.ParseFloat(measureString, 64)` we will implement our own string parsing.
 
 Benchmark Results: 
 36          33,475,833 ns/op        21,177,892 B/op    1,002,303 allocs/op
 
 Time Results:
-41.84 real       147.01 user        19.71 sys
+34.11 real       124.45 user        20.43 sys
