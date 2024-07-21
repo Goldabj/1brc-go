@@ -92,7 +92,16 @@ Our Go worker routines were returning a `map[string]*Measurement`. However, look
 Therefore the idea is by having a `map[string]Measurement`, then some results may live on the stack, and therefore lead to lower garbage collection (and coordination between go routines)
 
 Benchmark results:
-19          63923818 ns/op        53225366 B/op    2002570 allocs/op
+19          63,923,818 ns/op        53,225,366 B/op    2,002,570 allocs/op
 
 Time Results:
 61.22 real       243.05 user        31.67 sys
+
+### 6: Custom Line Parsing and int64 operations (41s)
+Instead of using `strings.Split(line, ";")` and `strconv.ParseFloat(measureString, 64)` we will implement our own string parsing.
+
+Benchmark Results: 
+36          33,475,833 ns/op        21,177,892 B/op    1,002,303 allocs/op
+
+Time Results:
+41.84 real       147.01 user        19.71 sys

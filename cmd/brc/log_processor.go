@@ -109,22 +109,32 @@ func seekToNewLine(data []byte, start int) int {
 // converts a line in the format: "city;xx.x" into a measurement object
 // returns teh Measurement and city.
 func lineToMeasurement(line string) (Measurement, string, error) {
-	splits := strings.Split(line, ";")
-	if len(splits) != 2 {
+	splitIdx := strings.IndexByte(line, ';')
+	if splitIdx == -1 {
 		return Measurement{}, "", fmt.Errorf("line split produced more than 2 splits:  %v", line)
 	}
-	city := splits[0]
-	measureString := splits[1]
-	measure, err := strconv.ParseFloat(measureString, 64)
+
+	city := line[:splitIdx]
+	measureString := line[splitIdx+1:]
+
+	decimalIdx := strings.IndexByte(measureString, '.')
+	measure, err := strconv.ParseInt(measureString[:decimalIdx], 10, 64)
 	if err != nil {
 		return Measurement{}, "", fmt.Errorf("measure is not a number:  %v", measureString)
 	}
 
+	decimal, err := strconv.ParseInt(measureString[decimalIdx+1:], 10, 64)
+	if err != nil {
+		return Measurement{}, "", fmt.Errorf("measure is not a number:  %v", measureString)
+	}
+
+	total := measure*10 + decimal // we know decimal is a number 0 - 9
+
 	measurement := Measurement{
-		Min:   measure,
-		Max:   measure,
-		Sum:   measure,
-		Count: 1,
+		minShifted: total,
+		maxShifted: total,
+		sumShifted: total,
+		Count:      1,
 	}
 	return measurement, city, nil
 }
@@ -138,10 +148,5 @@ func combineMeasurements(city string, newMeasurement Measurement, m map[string]M
 		m[city] = newMeasurement
 	}
 }
-
-// TODO: Add race condition testing too
-// TODO: try using copies of Measurements to see if that turns out to be faster (due to less GC)
-// TODO: create your own line split function to create a split without copying array
-// TODO: change to int64 parsing string and int64 math
 
 // TODO: try to set the go GC at a large default min space size.
