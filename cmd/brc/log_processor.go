@@ -161,3 +161,5 @@ func combineMeasurements(city string, newMeasurement Measurement, m map[string]M
 
 // TODO: looks like map accesses are the slowest part right now (with strings). So maybe we change it to an idx style lookup?
 // TODO: SIMD -- For string splitting (finding \n and other chars)
+
+// TODO: setup Mutex and Block profiling to see if we

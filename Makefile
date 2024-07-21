@@ -30,10 +30,10 @@ clean:
 .PHONY: test
 test:
 	go test ./... -v -race
-	go test ./... -bench=. -run=XXX -benchmem
+	go test ./cmd/brc -bench=. -run=XXX -benchmem -cpuprofile=./build/profile/cpu.prof -memprofile=./build/profile/mem.prof -trace=./build/profile/trace.out
 
 ## test/coverage: Run test with coverage information
-.PHONY: test/coverage
+.PHONY: test/coverages
 test/coverage:
 	go test ./... -coverprofile=./build/coverage.out
 
