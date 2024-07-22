@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
+	"runtime/trace"
 	"sort"
 
 	"github.com/goldabj/1brc-go/cmd/brc"
@@ -15,6 +16,7 @@ import (
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
 var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
+var executionprofile = flag.String("execprofile", "", "write tarce execution to `file`")
 
 func main() {
 	if len(os.Args) < 2 {
@@ -23,7 +25,17 @@ func main() {
 
 	optind := permuteArgs(os.Args)
 	flag.Parse()
-	log.Printf("CPU Profile: %v", *cpuprofile)
+
+	if *executionprofile != "" {
+		f, err := os.Create(*executionprofile)
+		if err != nil {
+			log.Fatal("could not create trace execution profile: ", err)
+		}
+		defer f.Close()
+		trace.Start(f)
+		defer trace.Stop()
+	}
+
 	if *cpuprofile != "" {
 		log.Print("Capturing cpu profile information")
 		f, err := os.Create(*cpuprofile)

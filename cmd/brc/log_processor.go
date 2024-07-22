@@ -27,11 +27,11 @@ func ProcessLogFile(file *os.File) (map[string]Measurement, error) {
 	log.Printf("Data Size: %v", len(data))
 
 	workers := runtime.NumCPU()
-	chunkSize := len(data) / workers
-	log.Printf("Chunk Size: %v", chunkSize)
+	chunkSize := 64 * 1024 * 1024
+	chunks := len(data) / chunkSize
 
-	chunksQueue := make(chan []byte, workers)
-	resultsQueue := make(chan map[string]Measurement, workers)
+	chunksQueue := make(chan []byte, chunks)
+	resultsQueue := make(chan map[string]Measurement, chunks)
 
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
@@ -72,10 +72,10 @@ func ProcessLogFile(file *os.File) (map[string]Measurement, error) {
 	return m, nil
 }
 
-func chunkWorker(dataQueue chan []byte, resultQueue chan map[string]Measurement) {
+func chunkWorker(chunksQueue <-chan []byte, resultQueue chan<- map[string]Measurement) {
 	defer wg.Done()
-	for data := range dataQueue {
-		results := make(map[string]Measurement, 256)
+	results := make(map[string]Measurement, 256)
+	for data := range chunksQueue {
 		lineStart := 0
 
 		lineEnd := 0
@@ -95,8 +95,8 @@ func chunkWorker(dataQueue chan []byte, resultQueue chan map[string]Measurement)
 
 			lineStart += lineLen + 1
 		}
-		resultQueue <- results
 	}
+	resultQueue <- results
 }
 
 // returns the index of the first /n char after the start position in the byte array
@@ -112,7 +112,7 @@ func seekToNewLine(data []byte, start int) int {
 }
 
 // converts a line in the format: "city;xx.x" into a measurement object
-// returns teh Measurement and city.
+// returns the Measurement and city.
 func lineToMeasurement(line string) (Measurement, string, error) {
 	splitIdx := strings.IndexByte(line, ';')
 	if splitIdx == -1 {
@@ -153,6 +153,3 @@ func combineMeasurements(city string, newMeasurement Measurement, m map[string]M
 		m[city] = newMeasurement
 	}
 }
-
-// TODO: review trace
-// TODO: what is runtime.asyncPreempt?

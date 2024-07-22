@@ -1,8 +1,8 @@
 ## build: lints and compiles the brc executable
 .PHONY: build
 build: 
-	golangci-lint run ./...
-	go vet ./...
+	golangci-lint run ./cmd/brc/...
+	go vet ./cmd/brc/...
 	go build -o build/bin/brc cmd/main.go
 
 ## run: compile and run the brc exectuable
@@ -13,12 +13,12 @@ run:
 ## run-timed: runs the project and times the brc
 .PHONY: run-timed
 run-timed: build
-	GOGC=1000 time ./build/bin/brc ./data/measurements.txt
+	time ./build/bin/brc ./data/measurements.txt
 
 .PHONY: run-profile
 run-profile: build
 	mkdir -p ./build/profile
-	time ./build/bin/brc ./data/measurements.txt --cpuprofile=./build/profile/cpuprofile.prof --memprofile=./build/profile/memprofile.prof
+	time ./build/bin/brc ./data/measurements.txt --cpuprofile=./build/profile/cpuprofile.prof --memprofile=./build/profile/memprofile.prof --execprofile=./build/profile/exec.trace
 
 ## clean: Clean the project
 .PHONY: clean
