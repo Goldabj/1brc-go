@@ -13,7 +13,7 @@ run:
 ## run-timed: runs the project and times the brc
 .PHONY: run-timed
 run-timed: build
-	time ./build/bin/brc ./data/measurements.txt
+	GOGC=1000 time ./build/bin/brc ./data/measurements.txt
 
 .PHONY: run-profile
 run-profile: build
