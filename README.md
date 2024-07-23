@@ -119,6 +119,9 @@ Benchmark results:
 Time Results:
 35.45 real       130.00 user        22.23 sys
 
-### 8: Changed Map Key 
-TODO:
-Changed map[string]Measurement to map[unit64]Measurement. This avoids needing to hash the city multiple times for lookup and setting. It also avoids the need to allocate the city name on the heap, which results in less heap space and less GC time
+### 8: Changed to sequential reading (21s)
+
+Instead of mmapping file, I changed the approach to read the file sequentially, then truncate the chunk read to align on a \n char. This had a great speed up. I expected sequential reading to be better since we only read the file once and process sequentially. Therefore there is better cache consistency (OS page cache, and L1 cache). Mmapping is only better if we were to access the parts of the file many times and randomly. However, I didn't expect such a large speed up. MMapping may not work very well on my platform. 
+
+Time Results:
+21.14 real       120.03 user         3.92 sys

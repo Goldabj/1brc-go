@@ -3,51 +3,57 @@ package brc
 import (
 	"bytes"
 	"errors"
+	"io"
 	"log"
 	"os"
 	"runtime"
 	"sync"
-
-	"github.com/edsrzf/mmap-go"
 )
 
 var wg sync.WaitGroup
 
 // Convert a log file of readings into a map of measurements
 func ProcessLogFile(file *os.File) (map[string]Measurement, error) {
-	// mmap a file
-	data, err := mmap.Map(file, mmap.RDONLY, 0)
-	if err != nil {
-		return nil, err
-	}
-	//nolint:all
-	defer data.Unmap()
-	log.Printf("Data Size: %v", len(data))
-
-	workers := runtime.NumCPU()
+	workers := runtime.NumCPU() - 1
 	chunkSize := 64 * 1024 * 1024
-	chunks := len(data) / chunkSize
 
-	chunksQueue := make(chan []byte, chunks)
-	resultsQueue := make(chan map[string]Measurement, chunks)
+	chunksQueue := make(chan []byte, 12)
+	resultsQueue := make(chan map[string]Measurement, 12)
 
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go chunkWorker(chunksQueue, resultsQueue)
 	}
 
-	// send chunks aligned on \n char to workers
-	start := 0
-	end := -1
-	for end < len(data)-1 { // -1 since the last char is an extra new line
-		start = end + 1
-		end = seekToNewLine(data, end+chunkSize)
-		chunksQueue <- data[start : end+1]
-	}
-	close(chunksQueue)
-
 	// go process to close the results queue to signal all the consumers are done
 	go func() {
+		buf := make([]byte, chunkSize)
+		leftover := make([]byte, 0, chunkSize)
+		for {
+			readTotal, err := file.Read(buf)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				panic(err)
+			}
+			buf = buf[:readTotal]
+
+			toSend := make([]byte, readTotal)
+			copy(toSend, buf)
+
+			lastNewLineIndex := bytes.LastIndex(buf, []byte{'\n'})
+
+			toSend = append(leftover, buf[:lastNewLineIndex+1]...)
+			leftover = make([]byte, len(buf[lastNewLineIndex+1:]))
+			copy(leftover, buf[lastNewLineIndex+1:])
+
+			chunksQueue <- toSend
+
+		}
+		close(chunksQueue)
+
+		// wait for workers to complete
 		wg.Wait()
 		close(resultsQueue)
 	}()
@@ -60,7 +66,6 @@ func ProcessLogFile(file *os.File) (map[string]Measurement, error) {
 		if !ok {
 			break
 		}
-		log.Printf("Received chunk results from a process")
 
 		for city, measure := range chunkResults {
 			combineMeasurements(city, measure, m)
@@ -88,18 +93,6 @@ func chunkWorker(chunksQueue <-chan []byte, resultQueue chan<- map[string]Measur
 	resultQueue <- results
 }
 
-// returns the index of the first /n char after the start position in the byte array
-func seekToNewLine(data []byte, start int) int {
-	if start > len(data) {
-		return len(data) - 1
-	}
-	idx := bytes.IndexByte(data[start:], '\n')
-	if idx == -1 {
-		return len(data) - 1
-	}
-	return idx + start
-}
-
 // converts a line in the format: "city;xx.x\n" into a measurement object.
 // It stops when the first \n char is reached.
 // returns the Measurement, city, and bytes read
@@ -125,10 +118,7 @@ func lineToMeasure(line []byte) (Measurement, string, int, error) {
 // Merge the new measurement into the map of measurements.
 func combineMeasurements(city string, newMeasurement Measurement, m map[string]Measurement) {
 	if currentMeasure, found := m[city]; found {
-		err := currentMeasure.Merge(newMeasurement)
-		if err != nil {
-			log.Fatal("merge Error")
-		}
+		currentMeasure.Merge(newMeasurement)
 		m[city] = currentMeasure
 	} else {
 		m[city] = newMeasurement

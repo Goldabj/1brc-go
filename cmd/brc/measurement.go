@@ -11,12 +11,11 @@ type Measurement struct {
 	Count      int64
 }
 
-func (m *Measurement) Merge(other Measurement) error {
+func (m *Measurement) Merge(other Measurement) {
 	m.minShifted = min(m.minShifted, other.minShifted)
 	m.maxShifted = max(m.maxShifted, other.maxShifted)
 	m.sumShifted = m.sumShifted + other.sumShifted
 	m.Count = m.Count + other.Count
-	return nil
 }
 
 func (m *Measurement) Min() float64 {
