@@ -21,7 +21,10 @@ func TestMergeHappyPath(t *testing.T) {
 		Count:      2,
 	}
 
-	measure1.Merge(measure2)
+	err := measure1.Merge(measure2)
+	if err != nil {
+		t.Fail()
+	}
 
 	assert.Equal(t, 1.0, measure1.Min())
 	assert.Equal(t, 12.0, measure1.Max())
@@ -45,7 +48,10 @@ func TestMergeWithFloatingPoints(t *testing.T) {
 		Count:      2,
 	}
 
-	measure1.Merge(measure2)
+	err := measure1.Merge(measure2)
+	if err != nil {
+		t.Fail()
+	}
 
 	assert.Equal(t, 4.3, measure1.Min())
 	assert.Equal(t, 12.2, measure1.Max())

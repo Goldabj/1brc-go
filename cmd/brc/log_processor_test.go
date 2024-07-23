@@ -16,7 +16,7 @@ func TestCombineMeasurementsHappyPath(t *testing.T) {
 		sumShifted: 110,
 		Count:      2,
 	}
-	m1["city"] = measure1
+	combineMeasurements("city", measure1, m1)
 
 	measure2 := Measurement{
 		minShifted: 40,
@@ -72,46 +72,48 @@ func TestProcessLogHappyPath(t *testing.T) {
 	}
 	defer file.Close()
 
-	measurementMap, error := ProcessLogFile(file)
+	measureSet, error := ProcessLogFile(file)
 	if error != nil {
 		t.Error(error.Error())
 		return
 	}
 
-	// Palermo
-	measurement := measurementMap["Palermo"]
-	assert.Equal(t, 7.3, measurement.Sum())
-	assert.Equal(t, int64(3), measurement.Count)
-	assert.Equal(t, 1.1, measurement.Min())
-	assert.Equal(t, 3.1, measurement.Max())
-
-	// Harbin
-	measurement = measurementMap["Harbin"]
-	assert.Equal(t, 21.3, measurement.Sum())
-	assert.Equal(t, int64(3), measurement.Count)
-	assert.Equal(t, 1.1, measurement.Min())
-	assert.Equal(t, 10.1, measurement.Max())
-
-	// Tallinn
-	measurement = measurementMap["Tallinn"]
-	assert.Equal(t, 46.3, measurement.Sum())
-	assert.Equal(t, int64(3), measurement.Count)
-	assert.Equal(t, 12.1, measurement.Min())
-	assert.Equal(t, 17.1, measurement.Max())
+	assert.Equal(t, 5, len(measureSet))
 
 	// Banjul
-	measurement = measurementMap["Banjul"]
+	measurement := measureSet["Banjul"]
 	assert.Equal(t, 55.0, measurement.Sum())
 	assert.Equal(t, int64(3), measurement.Count)
 	assert.Equal(t, 5.0, measurement.Min())
 	assert.Equal(t, 25.0, measurement.Max())
 
 	// Boston
-	measurement = measurementMap["Boston"]
+	measurement = measureSet["Boston"]
 	assert.Equal(t, 12.0, measurement.Sum())
 	assert.Equal(t, int64(3), measurement.Count)
 	assert.Equal(t, 4.0, measurement.Min())
 	assert.Equal(t, 4.0, measurement.Max())
+
+	// Harbin
+	measurement = measureSet["Harbin"]
+	assert.Equal(t, 21.3, measurement.Sum())
+	assert.Equal(t, int64(3), measurement.Count)
+	assert.Equal(t, 1.1, measurement.Min())
+	assert.Equal(t, 10.1, measurement.Max())
+
+	// Palermo
+	measurement = measureSet["Palermo"]
+	assert.Equal(t, 7.3, measurement.Sum())
+	assert.Equal(t, int64(3), measurement.Count)
+	assert.Equal(t, 1.1, measurement.Min())
+	assert.Equal(t, 3.1, measurement.Max())
+
+	// Tallinn
+	measurement = measureSet["Tallinn"]
+	assert.Equal(t, 46.3, measurement.Sum())
+	assert.Equal(t, int64(3), measurement.Count)
+	assert.Equal(t, 12.1, measurement.Min())
+	assert.Equal(t, 17.1, measurement.Max())
 }
 
 // BenchMark Testing

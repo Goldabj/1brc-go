@@ -67,6 +67,7 @@ func ProcessLogFile(file *os.File) (map[string]Measurement, error) {
 		}
 	}
 	log.Print("All Done")
+
 	return m, nil
 }
 
@@ -106,7 +107,7 @@ func lineToMeasure(line []byte) (Measurement, string, int, error) {
 	for idx, char := range line {
 		switch char {
 		case ';':
-			city := string(line[:idx])
+			city := line[:idx]
 			sample, bytesRead := bytesToInt(line[idx+1:])
 			measurement := Measurement{
 				minShifted: sample,
@@ -114,7 +115,7 @@ func lineToMeasure(line []byte) (Measurement, string, int, error) {
 				sumShifted: sample,
 				Count:      1,
 			}
-			return measurement, city, idx + bytesRead + 2, nil
+			return measurement, string(city), idx + bytesRead + 2, nil
 		}
 	}
 	return Measurement{}, "", 0, errors.New("failed to parse line")
@@ -124,7 +125,10 @@ func lineToMeasure(line []byte) (Measurement, string, int, error) {
 // Merge the new measurement into the map of measurements.
 func combineMeasurements(city string, newMeasurement Measurement, m map[string]Measurement) {
 	if currentMeasure, found := m[city]; found {
-		currentMeasure.Merge(newMeasurement)
+		err := currentMeasure.Merge(newMeasurement)
+		if err != nil {
+			log.Fatal("merge Error")
+		}
 		m[city] = currentMeasure
 	} else {
 		m[city] = newMeasurement
