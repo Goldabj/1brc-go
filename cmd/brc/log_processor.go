@@ -6,8 +6,6 @@ import (
 	"log"
 	"os"
 	"runtime"
-	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/edsrzf/mmap-go"
@@ -85,7 +83,7 @@ func chunkWorker(chunksQueue <-chan []byte, resultQueue chan<- map[string]Measur
 				break
 			}
 
-			line := string(data[lineStart:(lineStart + lineLen)])
+			line := data[lineStart:(lineStart + lineLen)]
 
 			measurement, city, err := lineToMeasurement(line)
 			if err != nil {
@@ -113,8 +111,8 @@ func seekToNewLine(data []byte, start int) int {
 
 // converts a line in the format: "city;xx.x" into a measurement object
 // returns the Measurement and city.
-func lineToMeasurement(line string) (Measurement, string, error) {
-	splitIdx := strings.IndexByte(line, ';')
+func lineToMeasurement(line []byte) (Measurement, string, error) {
+	splitIdx := bytes.IndexByte(line, ';')
 	if splitIdx == -1 {
 		return Measurement{}, "", fmt.Errorf("line split produced more than 2 splits:  %v", line)
 	}
@@ -122,26 +120,15 @@ func lineToMeasurement(line string) (Measurement, string, error) {
 	city := line[:splitIdx]
 	measureString := line[splitIdx+1:]
 
-	decimalIdx := strings.IndexByte(measureString, '.')
-	measure, err := strconv.ParseInt(measureString[:decimalIdx], 10, 64)
-	if err != nil {
-		return Measurement{}, "", fmt.Errorf("measure is not a number:  %v", measureString)
-	}
-
-	decimal, err := strconv.ParseInt(measureString[decimalIdx+1:], 10, 64)
-	if err != nil {
-		return Measurement{}, "", fmt.Errorf("decimal is not a number:  %v", measureString)
-	}
-
-	total := measure*10 + decimal // we know decimal is a number 0 - 9
+	measure := bytesToInt(measureString)
 
 	measurement := Measurement{
-		minShifted: total,
-		maxShifted: total,
-		sumShifted: total,
+		minShifted: measure,
+		maxShifted: measure,
+		sumShifted: measure,
 		Count:      1,
 	}
-	return measurement, city, nil
+	return measurement, string(city), nil
 }
 
 // Merge the new measurement into the map of measurements.
@@ -152,4 +139,27 @@ func combineMeasurements(city string, newMeasurement Measurement, m map[string]M
 	} else {
 		m[city] = newMeasurement
 	}
+}
+
+// takes a []byte array representing a string such as "-23.3" and returns the
+// number multiplied by 10 in as a int64 (ex 233)
+func bytesToInt(measure []byte) int64 {
+	negative := false
+	index := 0
+	if measure[index] == '-' {
+		index++
+		negative = true
+	}
+	temp := int64(measure[index]-'0') * 10 // parse first digit
+	index++
+	if measure[index] != '.' {
+		temp = temp*10 + int64(measure[index]-'0')*10 // parse optional second digit
+		index++
+	}
+	index++                             // skip '.'
+	temp += int64(measure[index] - '0') // parse decimal digit
+	if negative {
+		temp = -temp
+	}
+	return temp
 }

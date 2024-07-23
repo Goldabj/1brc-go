@@ -105,3 +105,10 @@ Benchmark Results:
 
 Time Results:
 34.11 real       124.45 user        20.43 sys
+
+### 7: Other
+
+* Changed lineToMeasure to take a `[]byte`. This allowed the conversion to be more efficient. It also avoids the need to allocate a `string(buffer)` variable which was contributing to a lot of data being placed on the heap
+
+Benchmark results:
+9         114127301 ns/op        1,012,4064 B/op    1,000,102 allocs/op

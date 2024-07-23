@@ -4,6 +4,7 @@ build:
 	golangci-lint run ./cmd/brc/...
 	go vet ./cmd/brc/...
 	go build -o build/bin/brc cmd/main.go
+	
 
 ## run: compile and run the brc exectuable
 .PHONY: run	
@@ -18,7 +19,7 @@ run-timed: build
 .PHONY: run-profile
 run-profile: build
 	mkdir -p ./build/profile
-	time ./build/bin/brc ./data/measurements.txt --cpuprofile=./build/profile/cpuprofile.prof --memprofile=./build/profile/memprofile.prof --execprofile=./build/profile/exec.trace
+	time ./build/bin/brc ./data/measurements.txt --cpuprofile=./build/profile/cpuprofile.prof --memprofile=./build/profile/memprofile.mprof --execprofile=./build/profile/exec.trace
 
 ## clean: Clean the project
 .PHONY: clean
@@ -46,3 +47,7 @@ all: build, run-timed
 help:
 	@echo 'Usage:'
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' |  sed -e 's/^/ /'
+
+
+# Other Notes
+# go build -gcflags='-m=3' -o build/bin/brc cmd/main.go 

@@ -1,0 +1,22 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "go.enableCodeLens": {
+            "runtest": true 
+        },
+        "gopls": {
+            "ui.codelenses": { 
+                "generate": true,
+                "gc_details": true  
+            },
+            "ui.diagnostic.annotations": {
+                "escape": true 
+            },
+            "ui.semanticTokens": true
+        },
+    }
+}

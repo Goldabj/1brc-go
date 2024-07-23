@@ -37,7 +37,7 @@ func TestCombineMeasurementsHappyPath(t *testing.T) {
 func TestLineToMeasurementHappyPath(t *testing.T) {
 	line := "mycity;23.0"
 
-	measure, city, error := lineToMeasurement(line)
+	measure, city, error := lineToMeasurement([]byte(line))
 	if error != nil {
 		assert.Fail(t, error.Error())
 	}
@@ -52,7 +52,7 @@ func TestLineToMeasurementHappyPath(t *testing.T) {
 func TestLineToMeasurementWithFloatingPointNumber(t *testing.T) {
 	line := "mycity;22.3"
 
-	measure, city, error := lineToMeasurement(line)
+	measure, city, error := lineToMeasurement([]byte(line))
 	if error != nil {
 		assert.Fail(t, error.Error())
 	}
