@@ -111,7 +111,6 @@ func readFileLineByLineIntoAMap(filepath string) (map[string]cityTemperatureInfo
 	}
 	defer file.Close()
 
-	mapOfTemp := make(map[string]cityTemperatureInfo)
 	resultStream := make(chan map[string]cityTemperatureInfo, 10)
 	chunkStream := make(chan []byte, 15)
 	chunkSize := 64 * 1024 * 1024
@@ -161,7 +160,9 @@ func readFileLineByLineIntoAMap(filepath string) (map[string]cityTemperatureInfo
 		close(resultStream)
 	}()
 
+	// reduce
 	// process all city temperatures derived after processing the file chunks
+	mapOfTemp := make(map[string]cityTemperatureInfo)
 	for t := range resultStream {
 		for city, tempInfo := range t {
 			if val, ok := mapOfTemp[city]; ok {
@@ -190,7 +191,7 @@ func processReadChunk(buf []byte, resultStream chan<- map[string]cityTemperature
 	var city string
 
 	stringBuf := string(buf)
-	for index, char := range stringBuf {
+	for index, char := range stringBuf { // O(n)
 		switch char {
 		case ';':
 			city = stringBuf[start:index]

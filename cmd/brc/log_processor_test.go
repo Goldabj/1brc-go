@@ -34,30 +34,31 @@ func TestCombineMeasurementsHappyPath(t *testing.T) {
 	assert.Equal(t, int64(5), merged.Count)
 }
 
-func TestLineToMeasurementHappyPath(t *testing.T) {
-	line := "mycity;23.0"
+func TestLineToMeasureHappyPath(t *testing.T) {
+	line := "mycity;23.0\n"
 
-	measure, city, error := lineToMeasurement([]byte(line))
+	measure, city, bytesRead, error := lineToMeasure([]byte(line))
 	if error != nil {
 		assert.Fail(t, error.Error())
 	}
-
 	assert.Equal(t, "mycity", city)
+	assert.Equal(t, 12, bytesRead)
 	assert.Equal(t, 23.0, measure.Max())
 	assert.Equal(t, 23.0, measure.Min())
 	assert.Equal(t, 23.0, measure.Sum())
 	assert.Equal(t, int64(1), measure.Count)
 }
 
-func TestLineToMeasurementWithFloatingPointNumber(t *testing.T) {
-	line := "mycity;22.3"
+func TestLineToMeasureWithFloatingPointNumber(t *testing.T) {
+	line := "mycity;22.3\n"
 
-	measure, city, error := lineToMeasurement([]byte(line))
+	measure, city, bytesRead, error := lineToMeasure([]byte(line))
 	if error != nil {
 		assert.Fail(t, error.Error())
 	}
 
 	assert.Equal(t, "mycity", city)
+	assert.Equal(t, 12, bytesRead)
 	assert.Equal(t, 22.3, measure.Max())
 	assert.Equal(t, 22.3, measure.Min())
 	assert.Equal(t, 22.3, measure.Sum())

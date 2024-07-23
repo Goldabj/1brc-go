@@ -106,9 +106,19 @@ Benchmark Results:
 Time Results:
 34.11 real       124.45 user        20.43 sys
 
-### 7: Other
+### 7: In place chunk processing (35s)
 
 * Changed lineToMeasure to take a `[]byte`. This allowed the conversion to be more efficient. It also avoids the need to allocate a `string(buffer)` variable which was contributing to a lot of data being placed on the heap
 
+* Changed the chunk parser to parse the city and measurement as we iterate over the line. Before we would read the line until we reach a \n char. Then we would parse the line. Which resulted in use iterating over every character twice. 
+
+
 Benchmark results:
 9         114127301 ns/op        1,012,4064 B/op    1,000,102 allocs/op
+
+Time Results:
+35.45 real       130.00 user        22.23 sys
+
+### 8: Changed Map Key 
+TODO:
+Changed map[string]Measurement to map[unit64]Measurement. This avoids needing to hash the city multiple times for lookup and setting. It also avoids the need to allocate the city name on the heap, which results in less heap space and less GC time

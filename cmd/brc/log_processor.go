@@ -2,7 +2,7 @@ package brc
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"log"
 	"os"
 	"runtime"
@@ -74,24 +74,14 @@ func chunkWorker(chunksQueue <-chan []byte, resultQueue chan<- map[string]Measur
 	defer wg.Done()
 	results := make(map[string]Measurement, 256)
 	for data := range chunksQueue {
-		lineStart := 0
-
-		lineEnd := 0
-		for lineEnd < len(data)-1 {
-			lineLen := bytes.IndexByte(data[lineStart:], '\n')
-			if lineLen == -1 {
-				break
-			}
-
-			line := data[lineStart:(lineStart + lineLen)]
-
-			measurement, city, err := lineToMeasurement(line)
+		for i := 0; i < len(data); {
+			measure, city, bytesRead, err := lineToMeasure(data[i:])
 			if err != nil {
-				log.Fatalf("errored: %v", err.Error())
+				log.Fatal("Failed to create measure", err)
 			}
-			combineMeasurements(city, measurement, results)
 
-			lineStart += lineLen + 1
+			combineMeasurements(city, measure, results)
+			i += bytesRead
 		}
 	}
 	resultQueue <- results
@@ -109,26 +99,26 @@ func seekToNewLine(data []byte, start int) int {
 	return idx + start
 }
 
-// converts a line in the format: "city;xx.x" into a measurement object
-// returns the Measurement and city.
-func lineToMeasurement(line []byte) (Measurement, string, error) {
-	splitIdx := bytes.IndexByte(line, ';')
-	if splitIdx == -1 {
-		return Measurement{}, "", fmt.Errorf("line split produced more than 2 splits:  %v", line)
+// converts a line in the format: "city;xx.x\n" into a measurement object.
+// It stops when the first \n char is reached.
+// returns the Measurement, city, and bytes read
+func lineToMeasure(line []byte) (Measurement, string, int, error) {
+	for idx, char := range line {
+		switch char {
+		case ';':
+			city := string(line[:idx])
+			sample, bytesRead := bytesToInt(line[idx+1:])
+			measurement := Measurement{
+				minShifted: sample,
+				maxShifted: sample,
+				sumShifted: sample,
+				Count:      1,
+			}
+			return measurement, city, idx + bytesRead + 2, nil
+		}
 	}
+	return Measurement{}, "", 0, errors.New("failed to parse line")
 
-	city := line[:splitIdx]
-	measureString := line[splitIdx+1:]
-
-	measure := bytesToInt(measureString)
-
-	measurement := Measurement{
-		minShifted: measure,
-		maxShifted: measure,
-		sumShifted: measure,
-		Count:      1,
-	}
-	return measurement, string(city), nil
 }
 
 // Merge the new measurement into the map of measurements.
@@ -143,7 +133,8 @@ func combineMeasurements(city string, newMeasurement Measurement, m map[string]M
 
 // takes a []byte array representing a string such as "-23.3" and returns the
 // number multiplied by 10 in as a int64 (ex 233)
-func bytesToInt(measure []byte) int64 {
+// returns the number, and bytes read
+func bytesToInt(measure []byte) (int64, int) {
 	negative := false
 	index := 0
 	if measure[index] == '-' {
@@ -158,8 +149,12 @@ func bytesToInt(measure []byte) int64 {
 	}
 	index++                             // skip '.'
 	temp += int64(measure[index] - '0') // parse decimal digit
+	index++
 	if negative {
 		temp = -temp
 	}
-	return temp
+	return temp, index
 }
+
+// TODO: Instead of storing the city as the key to our map (which needs to have its hash re-computed often) it would be much more
+// efficient to use an integer as the key.
