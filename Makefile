@@ -31,7 +31,8 @@ clean:
 .PHONY: test
 test:
 	go test ./... -v -race
-	go test ./cmd/brc -bench=. -run=XXX -benchmem -cpuprofile=./build/profile/cpu.prof -memprofile=./build/profile/mem.prof -trace=./build/profile/trace.out
+	mkdir -p ./build/profile
+	go test ./cmd/brc -bench=. -run=XXX -benchmem -cpuprofile=./build/profile/cpu.prof -memprofile=./build/profile/mem.mprof -trace=./build/profile/trace.out
 
 ## test/coverage: Run test with coverage information
 .PHONY: test/coverages

@@ -4,11 +4,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/dolthub/swiss"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCombineMeasurementsHappyPath(t *testing.T) {
-	m1 := make(map[string]Measurement)
+	m1 := swiss.NewMap[string, Measurement](5)
 
 	measure1 := Measurement{
 		minShifted: 10,
@@ -27,7 +28,7 @@ func TestCombineMeasurementsHappyPath(t *testing.T) {
 
 	combineMeasurements("city", measure2, m1)
 
-	merged := m1["city"]
+	merged, _ := m1.Get("city")
 	assert.Equal(t, 1.0, merged.Min())
 	assert.Equal(t, 13.0, merged.Max())
 	assert.Equal(t, 23.0, merged.Sum())
@@ -78,38 +79,38 @@ func TestProcessLogHappyPath(t *testing.T) {
 		return
 	}
 
-	assert.Equal(t, 5, len(measureSet))
+	assert.Equal(t, 5, measureSet.Count())
 
 	// Banjul
-	measurement := measureSet["Banjul"]
+	measurement, _ := measureSet.Get("Banjul")
 	assert.Equal(t, 55.0, measurement.Sum())
 	assert.Equal(t, int64(3), measurement.Count)
 	assert.Equal(t, 5.0, measurement.Min())
 	assert.Equal(t, 25.0, measurement.Max())
 
 	// Boston
-	measurement = measureSet["Boston"]
+	measurement, _ = measureSet.Get("Boston")
 	assert.Equal(t, 12.0, measurement.Sum())
 	assert.Equal(t, int64(3), measurement.Count)
 	assert.Equal(t, 4.0, measurement.Min())
 	assert.Equal(t, 4.0, measurement.Max())
 
 	// Harbin
-	measurement = measureSet["Harbin"]
+	measurement, _ = measureSet.Get("Harbin")
 	assert.Equal(t, 21.3, measurement.Sum())
 	assert.Equal(t, int64(3), measurement.Count)
 	assert.Equal(t, 1.1, measurement.Min())
 	assert.Equal(t, 10.1, measurement.Max())
 
 	// Palermo
-	measurement = measureSet["Palermo"]
+	measurement, _ = measureSet.Get("Palermo")
 	assert.Equal(t, 7.3, measurement.Sum())
 	assert.Equal(t, int64(3), measurement.Count)
 	assert.Equal(t, 1.1, measurement.Min())
 	assert.Equal(t, 3.1, measurement.Max())
 
 	// Tallinn
-	measurement = measureSet["Tallinn"]
+	measurement, _ = measureSet.Get("Tallinn")
 	assert.Equal(t, 46.3, measurement.Sum())
 	assert.Equal(t, int64(3), measurement.Count)
 	assert.Equal(t, 12.1, measurement.Min())

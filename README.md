@@ -125,3 +125,17 @@ Instead of mmapping file, I changed the approach to read the file sequentially, 
 
 Time Results:
 21.14 real       120.03 user         3.92 sys
+
+### 9: Switched Swiss Maps (11s)
+ 
+In Attempt 8 most of our time spend was going to Map accesses (hash time and memory access time). I found a great blog and talk on swiss maps and their design [here](https://www.dolthub.com/blog/2023-03-28-swiss-map/). Swiss maps provides a more performant and efficient map implementation using some metadata indexing and bit mask tricks for high L1 cache utilization, SSE instructions, and better hash functions. 
+
+In this attempt I updated all references of go's built in maps to use Swiss maps
+
+
+Benchmark Results:
+638           1740496 ns/op        134369543 B/op      1616 allocs/op
+
+Time Results:
+10.90 real        65.62 user         3.21 sys
+

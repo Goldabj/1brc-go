@@ -60,7 +60,7 @@ func main() {
 		panic(error)
 	}
 
-	fmt.Printf("Measurements Length: %v\n\n", len(measurements))
+	fmt.Printf("Measurements Length: %v\n\n", measurements.Count())
 
 	if *memprofile != "" {
 		log.Print("Capturing memory dump profile")
@@ -75,10 +75,11 @@ func main() {
 		}
 	}
 
-	ids := make([]string, 0, len(measurements))
-	for id := range measurements {
-		ids = append(ids, id)
-	}
+	ids := make([]string, 0, measurements.Count())
+	measurements.Iter(func(k string, v brc.Measurement) bool {
+		ids = append(ids, k)
+		return false
+	})
 	sort.Strings(ids)
 
 	writer := io.Discard
@@ -95,7 +96,7 @@ func main() {
 				panic(err)
 			}
 		}
-		m := measurements[id]
+		m, _ := measurements.Get(id)
 		line := fmt.Sprintf("%s=%.1f/%.1f/%.1f", id, m.Min(), m.Avg(), m.Max())
 		_, err = io.WriteString(writer, line)
 		if err != nil {

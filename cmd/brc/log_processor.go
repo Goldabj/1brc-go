@@ -8,17 +8,19 @@ import (
 	"os"
 	"runtime"
 	"sync"
+
+	"github.com/dolthub/swiss"
 )
 
 var wg sync.WaitGroup
 
 // Convert a log file of readings into a map of measurements
-func ProcessLogFile(file *os.File) (map[string]Measurement, error) {
+func ProcessLogFile(file *os.File) (*swiss.Map[string, Measurement], error) {
 	workers := runtime.NumCPU() - 1
 	chunkSize := 64 * 1024 * 1024
 
-	chunksQueue := make(chan []byte, 12)
-	resultsQueue := make(chan map[string]Measurement, 12)
+	chunksQueue := make(chan []byte)
+	resultsQueue := make(chan *swiss.Map[string, Measurement], 12)
 
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
@@ -39,12 +41,9 @@ func ProcessLogFile(file *os.File) (map[string]Measurement, error) {
 			}
 			buf = buf[:readTotal]
 
-			toSend := make([]byte, readTotal)
-			copy(toSend, buf)
-
 			lastNewLineIndex := bytes.LastIndex(buf, []byte{'\n'})
 
-			toSend = append(leftover, buf[:lastNewLineIndex+1]...)
+			toSend := append(leftover, buf[:lastNewLineIndex+1]...)
 			leftover = make([]byte, len(buf[lastNewLineIndex+1:]))
 			copy(leftover, buf[lastNewLineIndex+1:])
 
@@ -59,7 +58,7 @@ func ProcessLogFile(file *os.File) (map[string]Measurement, error) {
 	}()
 
 	// collect and reduce results from go routines
-	m := make(map[string]Measurement, 512)
+	m := swiss.NewMap[string, Measurement](512)
 
 	for {
 		chunkResults, ok := <-resultsQueue
@@ -67,18 +66,19 @@ func ProcessLogFile(file *os.File) (map[string]Measurement, error) {
 			break
 		}
 
-		for city, measure := range chunkResults {
-			combineMeasurements(city, measure, m)
-		}
+		chunkResults.Iter(func(city string, v Measurement) (stop bool) {
+			combineMeasurements(city, v, m)
+			return false // continue
+		})
 	}
 	log.Print("All Done")
 
 	return m, nil
 }
 
-func chunkWorker(chunksQueue <-chan []byte, resultQueue chan<- map[string]Measurement) {
+func chunkWorker(chunksQueue <-chan []byte, resultQueue chan<- *swiss.Map[string, Measurement]) {
 	defer wg.Done()
-	results := make(map[string]Measurement, 256)
+	results := swiss.NewMap[string, Measurement](256)
 	for data := range chunksQueue {
 		for i := 0; i < len(data); {
 			measure, city, bytesRead, err := lineToMeasure(data[i:])
@@ -116,12 +116,12 @@ func lineToMeasure(line []byte) (Measurement, string, int, error) {
 }
 
 // Merge the new measurement into the map of measurements.
-func combineMeasurements(city string, newMeasurement Measurement, m map[string]Measurement) {
-	if currentMeasure, found := m[city]; found {
+func combineMeasurements(city string, newMeasurement Measurement, m *swiss.Map[string, Measurement]) {
+	if currentMeasure, found := m.Get(city); found {
 		currentMeasure.Merge(newMeasurement)
-		m[city] = currentMeasure
+		m.Put(city, currentMeasure)
 	} else {
-		m[city] = newMeasurement
+		m.Put(city, newMeasurement)
 	}
 }
 
